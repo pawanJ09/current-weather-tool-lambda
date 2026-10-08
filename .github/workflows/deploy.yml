@@ -1,0 +1,99 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  FUNCTION_NAME: current-weather-tool-lambda
+  ROLE_NAME: current-weather-tool-lambda-role
+  AWS_REGION: us-east-1
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build deployment package
+        run: |
+          mkdir -p build
+          cp src/handler.py build/
+          cd build && zip -r ../function.zip . && cd ..
+
+      - name: Ensure execution role exists
+        id: role
+        run: |
+          if aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
+            echo "Role $ROLE_NAME already exists"
+          else
+            echo "Creating $ROLE_NAME"
+            aws iam create-role \
+              --role-name "$ROLE_NAME" \
+              --assume-role-policy-document file://iam/trust-policy.json
+            aws iam put-role-policy \
+              --role-name "$ROLE_NAME" \
+              --policy-name "${ROLE_NAME}-execution" \
+              --policy-document file://iam/execution-role-policy.json
+            echo "Waiting for IAM propagation..."
+            sleep 10
+          fi
+          ROLE_ARN=$(aws iam get-role --role-name "$ROLE_NAME" --query 'Role.Arn' --output text)
+          echo "role_arn=$ROLE_ARN" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update function
+        run: |
+          if aws lambda get-function --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
+            echo "Updating existing function code"
+            aws lambda update-function-code \
+              --function-name "$FUNCTION_NAME" \
+              --zip-file fileb://function.zip
+          else
+            echo "Creating new function (retrying for IAM propagation)"
+            for attempt in 1 2 3 4 5; do
+              if aws lambda create-function \
+                --function-name "$FUNCTION_NAME" \
+                --runtime python3.13 \
+                --role "${{ steps.role.outputs.role_arn }}" \
+                --handler handler.lambda_handler \
+                --zip-file fileb://function.zip \
+                --timeout 10 \
+                --memory-size 128; then
+                break
+              fi
+              echo "Attempt $attempt failed, retrying in 10s..."
+              sleep 10
+            done
+          fi
+
+      - name: Smoke-test deployed function
+        run: |
+          aws lambda invoke \
+            --function-name "$FUNCTION_NAME" \
+            --payload file://events/sample_event_gateway.json \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+          cat response.json
+          python3 -c "
+          import json
+          with open('response.json') as f:
+              body = json.load(f)
+          assert 'temperature_f' in body, f'Unexpected response: {body}'
+          assert 'error' not in body, f'Smoke test got an error response: {body}'
+          print('Smoke test passed:', body)
+          "

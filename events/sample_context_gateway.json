@@ -1,0 +1,9 @@
+{
+  "_comment": "Reference only -- this is NOT a valid --client-context payload to pass to `aws lambda invoke`. It documents the shape AgentCore Gateway populates on context.client_context.custom when it invokes this Lambda as a target, per https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-add-target-lambda.html",
+  "bedrockAgentCoreMessageVersion": "1.0",
+  "bedrockAgentCoreAwsRequestId": "example-request-id",
+  "bedrockAgentCoreMcpMessageId": "example-mcp-message-id",
+  "bedrockAgentCoreGatewayId": "example-gateway-id",
+  "bedrockAgentCoreTargetId": "example-target-id",
+  "bedrockAgentCoreToolName": "weather-tools___get_current_weather"
+}

@@ -1,0 +1,37 @@
+{
+  "name": "get_current_weather",
+  "description": "Get current weather conditions (temperature, humidity, precipitation, wind) for a location given its latitude and longitude.",
+  "inputSchema": {
+    "type": "object",
+    "description": "Coordinates of the location to fetch current weather for.",
+    "properties": {
+      "latitude": {
+        "type": "number",
+        "description": "Latitude of the location, e.g. 40.7128"
+      },
+      "longitude": {
+        "type": "number",
+        "description": "Longitude of the location, e.g. -74.0060"
+      }
+    },
+    "required": ["latitude", "longitude"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "description": "Current weather conditions for the requested location, or an error if the upstream call failed.",
+    "properties": {
+      "latitude": { "type": "number", "description": "Latitude echoed back from Open-Meteo" },
+      "longitude": { "type": "number", "description": "Longitude echoed back from Open-Meteo" },
+      "timezone": { "type": "string", "description": "IANA timezone resolved for the coordinates" },
+      "observation_time": { "type": "string", "description": "ISO 8601 local timestamp of the observation" },
+      "temperature_f": { "type": "number", "description": "Current temperature in Fahrenheit" },
+      "feels_like_f": { "type": "number", "description": "Apparent temperature in Fahrenheit" },
+      "humidity_pct": { "type": "number", "description": "Relative humidity percentage" },
+      "precipitation_in": { "type": "number", "description": "Current precipitation in inches" },
+      "wind_speed_mph": { "type": "number", "description": "Wind speed in miles per hour" },
+      "wind_direction_deg": { "type": "number", "description": "Wind direction in degrees" },
+      "weather_code": { "type": "integer", "description": "WMO weather interpretation code" },
+      "error": { "type": "string", "description": "Present instead of the fields above if the call failed" }
+    }
+  }
+}
