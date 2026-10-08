@@ -81,6 +81,11 @@ jobs:
             done
           fi
 
+      - name: Wait for function to become Active
+        run: |
+          aws lambda wait function-active-v2 --function-name "$FUNCTION_NAME"
+          aws lambda wait function-updated-v2 --function-name "$FUNCTION_NAME"
+
       - name: Smoke-test deployed function
         run: |
           aws lambda invoke \
